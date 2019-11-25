@@ -2,5 +2,5 @@
 
 | Date       | Version   |  Author    | Note  |
 | --------   | :-----:   | :----      | :---- |
-| 2019-11-14 | v0.1      | hao        | init release(初始版本) |
+| 2019-11-26 | v1.0.1      | hao.dong   | init release |
 |            |           |            | |
