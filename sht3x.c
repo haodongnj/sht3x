@@ -1,7 +1,3 @@
-#include <rthw.h>
-#include <rtthread.h>
-#include <rtdevice.h>
-
 #include <string.h>
 
 #define DBG_ENABLE
@@ -51,7 +47,8 @@ static rt_err_t write_cmd(sht3x_device_t dev, rt_uint16_t cmd)
  * 
  * @return the i2c read status, RT_EOK represents success.
  */
-static rt_err_t read_bytes(sht3x_device_t dev, rt_uint8_t * buf, rt_uint8_t len){
+static rt_err_t read_bytes(sht3x_device_t dev, rt_uint8_t * buf, rt_uint8_t len)
+{
     if(rt_i2c_master_recv(dev->i2c, dev->sht3x_addr, RT_I2C_RD, buf, len) == len){
         return RT_EOK ;
     }else
@@ -70,7 +67,8 @@ static rt_err_t read_bytes(sht3x_device_t dev, rt_uint8_t * buf, rt_uint8_t len)
  * 
  * @return calculated CRC value.
  */
-static rt_uint8_t crc8(rt_uint8_t * buf, rt_uint8_t len){
+static rt_uint8_t crc8(rt_uint8_t * buf, rt_uint8_t len)
+{
     rt_uint8_t crc = 0xFF ;
     rt_uint8_t i, j ;
     for(j = len; j; j --){
@@ -201,7 +199,12 @@ rt_err_t sht3x_read_status(sht3x_device_t dev)
     return -RT_ERROR ;
 }
 
-
+/**
+ * This function enable heater
+ * @param dev the pointer of device driver structure
+ * 
+ * @return the command transfer status, RT_EOK means success.
+ */
 rt_err_t sht3x_enable_heater(sht3x_device_t dev)
 {
     RT_ASSERT(dev);
@@ -215,10 +218,10 @@ rt_err_t sht3x_enable_heater(sht3x_device_t dev)
 }
 
 /**
+ * This function disable heater
+ * @param dev the pointer of device driver structure
  * 
- * 
- * 
- * 
+ * @return the command transfer status, RT_EOK means success.
  */
 rt_err_t sht3x_disable_heater(sht3x_device_t dev)
 {
@@ -233,10 +236,10 @@ rt_err_t sht3x_disable_heater(sht3x_device_t dev)
 }
 
 /**
+ * This function write accelerated response time command to SHT3x
+ * @param dev the pointer of device driver structure
  * 
- * 
- * 
- * 
+ * @return the command transfer status, RT_EOK means success.
  */
 rt_err_t sht3x_acc_resp_time(sht3x_device_t dev)
 {
@@ -251,10 +254,10 @@ rt_err_t sht3x_acc_resp_time(sht3x_device_t dev)
 }
 
 /**
+ * This function write break command to SHT3x to break out of continuous readout mode
+ * @param dev the pointer of device driver structure
  * 
- * 
- * 
- * 
+ * @return the command transfer status, RT_EOK means success.
  */
 rt_err_t sht3x_break(sht3x_device_t dev)
 {
@@ -316,6 +319,9 @@ sht3x_device_t sht3x_init(const char *i2c_bus_name, rt_uint8_t sht3x_addr)
     // I2C streching disabled, medium repeatability for default single shot readout
     dev->cmd_readout = CMD_MEAS_POLLING_M ;
 
+	// clear the status register
+	sht3x_clear_status(dev);
+	
     return dev;
 }
 
@@ -334,11 +340,11 @@ void sht3x_deinit(sht3x_device_t dev)
 }
 
 /**
- * 
- * 
- * 
- * 
- * 
+ * This function is exported to MSH commands list 
+ * Usage example:
+ *  - sht3x probe i2c1 pu : initialize sht3x device on i2c1 bus with address pin pulled up(i2c address 0x45)
+ *  - sht3x probe i2c1: initialize sht3x device one i2c1 bus with address pin pulled down by default(i2c address 0x44)
+ *  - sht3x read: read and print temperature and humidity from previously initialized sht3x
  */
 void sht3x(int argc, char *argv[])
 {
@@ -355,17 +361,19 @@ void sht3x(int argc, char *argv[])
                 if (!dev || strcmp(dev->i2c->parent.parent.name, argv[2]))
                 {
                     /* deinit the old device */
-                    if (dev)
+                    if(dev)
                     {
+						rt_kprintf("Deinit sht3x");
                         sht3x_deinit(dev);
                     }
+                    // no else needed here
                     if( argc > 3)
                     {
-                        if( strcmp("pd", argv[2]))
+                        if( !strcmp("pd", argv[3]))
                         {
                             sht_addr = SHT3X_ADDR_PD ;
                         }
-                        else if( strcmp("pu", argv[2]))
+                        else if( !strcmp("pu", argv[3]))
                         {
                             sht_addr = SHT3X_ADDR_PU ;
                         }
@@ -375,15 +383,21 @@ void sht3x(int argc, char *argv[])
                             sht_addr = SHT3X_ADDR_PD ; // pulled down by default: 0x44 
                         }
                     }
+                    // no else needed here
+
                     dev = sht3x_init(argv[2], sht_addr);
-                    if(!dev){
+                    if(!dev)
+                    {
                         rt_kprintf("sht3x probe failed, check input args\n");
-                    }
+                    }else
+					{
+						rt_kprintf("sht3x probed, addr:0x%x\n", sht_addr) ;
+					}
                 }
             }
             else
             {
-                rt_kprintf("sht3x probe <dev_name>   - probe sensor by given name\n");
+                rt_kprintf("sht3x probe <i2c dev name>   - probe sensor by given name\n");
             }
         }
         else if (!strcmp(argv[1], "read"))
@@ -393,27 +407,100 @@ void sht3x(int argc, char *argv[])
                 /* read the sensor data */
                 sht3x_read_singleshot(dev);
 
-                rt_kprintf("read sht3x sensor humidity   : %d.%d %\n", (int)dev->humidity, (int)(dev->humidity * 10) % 10);
-                rt_kprintf("read sht3x sensor temperature: %d.%d \n", (int)dev->temperature, (int)(dev->temperature * 10) % 10);
+                rt_kprintf("sht3x humidity   : %d.%d \n", (int)dev->humidity, (int)(dev->humidity * 10) % 10);
+                rt_kprintf("sht3x temperature: %d.%d \n", (int)dev->temperature, (int)(dev->temperature * 10) % 10);
             }
             else
             {
-                rt_kprintf("Please using 'sht3x probe <dev_name>' first\n");
+                rt_kprintf("Please using 'sht3x probe <i2c dev name> <pu/pd>' first\n");
             }
         }
+		else if (!strcmp(argv[1], "status"))
+		{
+			if(dev)
+			{
+				if(sht3x_read_status(dev) == RT_EOK)
+				{
+					rt_kprintf("sht3x status:\n");
+					rt_kprintf("\tchecksum:\t%d\t- 0 means checksum correct\n", dev->status.bits.checksum_ok);
+					rt_kprintf("\tcommand:\t%d\t- 0 means last cmd executed OK\n", dev->status.bits.command_ok);
+					rt_kprintf("\treset deteced:\t%d\n", dev->status.bits.reset_detected);
+					rt_kprintf("\talert pending:\t%d\n", dev->status.bits.alert_pending);
+					rt_kprintf("\tT track alert:\t%d\n", dev->status.bits.T_tracking_alert);
+					rt_kprintf("\tRH track alert:\t%d\n", dev->status.bits.RH_tracking_alert);
+					rt_kprintf("\theater enabled:\t%d\n", dev->status.bits.heater);
+				}else
+				{
+					rt_kprintf("sht3x status not read\n");
+				}
+			}else
+			{
+				rt_kprintf("Please using 'sht3x probe <i2c dev name> <pu/pd>' first\n");
+			}
+		}
+		else if (!strcmp(argv[1], "reset"))
+		{
+			if(dev)
+			{
+				if(sht3x_softreset(dev) == RT_EOK)
+				{
+					rt_kprintf("sht3x reset cmd sent\n");
+				}else
+				{
+					rt_kprintf("sht3x reset cmd not sent\n");
+				}
+			}else
+			{
+				rt_kprintf("Please using 'sht3x probe <i2c dev name> <pu/pd>' first\n");
+			}
+		}
+		else if (!strcmp(argv[1], "heater"))
+		{
+			if(dev)
+			{
+				if( !strcmp(argv[2], "on"))
+				{
+					if(sht3x_enable_heater(dev) == RT_EOK)
+					{
+						rt_kprintf("sht3x heater cmd sent\n");
+					}else
+					{
+						rt_kprintf("sht3x heater cmd not sent\n");
+					}
+				}else if( !strcmp(argv[2], "off"))
+				{
+					if(sht3x_disable_heater(dev) == RT_EOK)
+					{
+						rt_kprintf("sht3x heater cmd sent\n");
+					}else
+					{
+						rt_kprintf("sht3x heater cmd not sent\n");
+					}
+				}
+				else{
+					rt_kprintf("Please input correct format:sht3x heater on/off\n");
+				}
+			}else
+			{
+				rt_kprintf("Please using 'sht3x probe <i2c dev name> <pu/pd>' first\n");
+			}
+		}
         else
         {
-            rt_kprintf("Unknown command. Please enter 'sht3x' for help\n");
+            rt_kprintf("Unknown command. Enter 'sht3x' for help\n");
         }
     }
     else
     {
         rt_kprintf("Usage:\n");
-        rt_kprintf("sht3x probe <dev_name>   - probe sensor by given name\n");
-        rt_kprintf("sht3x read               - read sensor sht20 data\n");
+        rt_kprintf("\tsht3x probe <i2c dev name> <pu/pd> -- probe sensor by i2c dev name and pull config\n");
+        rt_kprintf("\tsht3x read -- read sensor sht3x data\n");
+		rt_kprintf("\tsht3x status -- status register of sht3x\n");
+		rt_kprintf("\tsht3x reset -- send soft reset command to sht3x\n");
+		rt_kprintf("\tsht3x heater <on/off> -- turn on/off heater of sht3x\n");
     }
 }
 
-MSH_CMD_EXPORT(sht3x, sht3x sensor function);
+MSH_CMD_EXPORT(sht3x, sht3x sensor);
 
 #endif /* PKG_USING_SHT3X */
