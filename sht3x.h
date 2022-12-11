@@ -69,27 +69,6 @@ struct sht3x_device
 };
 typedef struct sht3x_device *sht3x_device_t;
 
-/**
- * This function write 2-byte cmd to SHT3x 
- *
- * @param dev the pointer of device driver structure
- * @param cmd the 16bit command to be sent to SHT3x
- *
- * @return the cmd transfer status, RT_EOK reprensents setting successfully.
- */
-static rt_err_t write_cmd(sht3x_device_t dev, rt_uint16_t cmd);
-
-/**
- *  This function read len bytes from dev and store the bytes in to buf 
- * 
- * @param dev the pointer of device driver structure
- * @param buf the pointer to buffer array 
- * @param len the number of bytes to be read 
- * 
- * @return the i2c read status, RT_EOK represents success.
- */
-static rt_err_t read_bytes(sht3x_device_t dev, rt_uint8_t * buf, rt_uint8_t len);
-
 /** 
  * This function read temperature and humidity by single shot mode 
  * Attention: 
